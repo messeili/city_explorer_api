@@ -129,11 +129,10 @@ function Location(cityData, location) {
 
 }
 
-
 function Weather(data) {
     this.forecast = data.weather.description;
     this.time = data.datetime;
-}
+};
 
 function Trails(dataTwo) {
     this.name = dataTwo.name;
@@ -155,7 +154,7 @@ function Movie(dataThree) {
     this.image_url = `https://image.tmdb.org/t/p/w500${dataThree.poster_path}`;
     this.popularity = dataThree.popularity;
     this.released_on = dataThree.release_data;
-}
+};
 
 function Yelp(dataFour) {
     this.name = dataFour.name;
@@ -163,9 +162,7 @@ function Yelp(dataFour) {
     this.price = dataFour.price;
     this.rating = dataFour.rating;
     this.url = dataFour.url;
-}
-
-
+};
 
 app.listen(PORT, () => {
     console.log(`Listening on PORT ${PORT}`)
