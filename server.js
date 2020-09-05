@@ -19,13 +19,16 @@ const client = new pg.Client(process.env.DATABASE_URL)
 //Define app routes
 app.get('/', theMainHandler);
 app.get('/location', locationHandler);
+app.get('/movies', moviesHandler);
 app.get('/weather', weatherHandler);
+app.get('/yelp', yelpHandler);
 app.get('/trails', trailsHandler)
+app.get('/movies', moviesHandler)
+app.get('/yelp', yelpHandler)
 app.use('*', handleNotFound);
 app.use(errorHandler);
 
 //app functions
-
 function theMainHandler(req, res) {
     res.status(200).send('you are doing great')
 };
@@ -83,6 +86,39 @@ function weatherHandler(req, res) {
         .catch(() => errorHandler('Some Thing Went Wrong with weather!!!', req, res));
 };
 
+function moviesHandler(req, res) {
+    const city = req.query.search_query;
+    const key4 = process.env.MOVIE_API_KEY;
+    let url4 = `https://api.themoviedb.org/3/search/movie?api_key=${key4}&query=${city}&page=1`;
+    superagent.get(url4)
+        .then(data => {
+            let movieData = data.body.results.map((element) => {
+                return new Movie(element);
+            })
+            res.status(200).send(movieData);
+        })
+        .catch(() => errorHandler('Something wrong with Movies!!!', req, res));
+}
+
+function yelpHandler(req, res) {
+    const latitude = req.query.latitude;
+    const longitude = req.query.longitude;
+    const key5 = process.env.YELP_API_KEY;
+    const url5 = `https://api.yelp.com/v3/businesses/search?term=delis&latitude=${latitude}&longitude=${longitude}`
+    superagent.get(url5).set("Authorization", `Bearer ${key5}`)
+        .then(data => {
+            let yelpData = data.body.businesses.map((element) => {
+                return new Yelp(element);
+            })
+            res.status(200).send(yelpData);
+            console.log(yelpData);
+
+        })
+        .catch(() => errorHandler('something went wrong with yelp!!', req, res));
+
+
+}
+
 function trailsHandler(req, res) {
     const latitude = req.query.latitude;
     const longitude = req.query.longitude;
@@ -102,6 +138,38 @@ function trailsHandler(req, res) {
         .catch(() => errorHandler('Some Thing Went Wrong with trails!!!', req, res));
 
 };
+function moviesHandler(req, res) {
+    const city = req.query.search_query;
+    const key4 = process.env.MOVIE_API_KEY;
+    let url4 = `https://api.themoviedb.org/3/search/movie?api_key=${key4}&query=${city}&page=1`;
+    superagent.get(url4)
+        .then(data => {
+            let movieData = data.body.results.map((element) => {
+                return new Movie(element);
+            })
+            res.status(200).send(movieData);
+        })
+        .catch(() => errorHandler('Something wrong with Movies!!!', req, res));
+}
+
+function yelpHandler(req, res) {
+    const latitude = req.query.latitude;
+    const longitude = req.query.longitude;
+    const key5 = process.env.YELP_API_KEY;
+    const url5 = `https://api.yelp.com/v3/businesses/search?term=delis&latitude=${latitude}&longitude=${longitude}`
+    superagent.get(url5).set("Authorization", `Bearer ${key5}`)
+        .then(data => {
+            let yelpData = data.body.businesses.map((element) => {
+                return new Yelp(element);
+            })
+            res.status(200).send(yelpData);
+            console.log(yelpData);
+
+        })
+        .catch(() => errorHandler('something went wrong with yelp!!', req, res));
+
+
+}
 
 function insertLocationInDB(obj) {
     let insertSQL = `INSERT INTO city (search_query,formatted_query,latitude,longitude) VALUES ($1,$2,$3,$4)`;
@@ -134,11 +202,10 @@ function Location(location, cityData) {
 
 }
 
-
 function Weather(data) {
     this.forecast = data.weather.description;
     this.time = data.datetime;
-}
+};
 
 function Trails(dataTwo) {
     this.name = dataTwo.name;
@@ -152,7 +219,31 @@ function Trails(dataTwo) {
     this.condition_date = dataTwo.conditionDate.split(' ')[0];
     this.condition_time = dataTwo.conditionDate.split(' ')[1];
 };
+function Movie(dataThree) {
+    this.title = dataThree.title;
+    this.overview = dataThree.overview;
+    this.average_votes = dataThree.vote_average;
+    this.image_url = `https://image.tmdb.org/t/p/w500${dataThree.poster_path}`;
+    this.popularity = dataThree.popularity;
+    this.released_on = dataThree.release_data;
+};
 
+function Yelp(dataFour) {
+    this.name = dataFour.name;
+    this.image_url = dataFour.image_url;
+    this.price = dataFour.price;
+    this.rating = dataFour.rating;
+    this.url = dataFour.url;
+};
+
+function Movie(dataThree) {
+    this.title = dataThree.title;
+    this.overview = dataThree.overview;
+    this.average_votes = dataThree.vote_average;
+    this.image_url = `https://image.tmdb.org/t/p/w500${dataThree.poster_path}`;
+    this.popularity = dataThree.popularity;
+    this.released_on = dataThree.release_data;
+};
 
 client.connect()
     .then(() => {
@@ -160,4 +251,5 @@ client.connect()
             console.log(`Listening on PORT ${PORT}`)
         });
     });
+
 
