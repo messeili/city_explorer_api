@@ -4,6 +4,7 @@
 const express = require('express');
 const cors = require('cors');
 const superagent = require('superagent');
+const pg = require('pg');
 require('dotenv').config();
 const app = express();
 //giving the access to any one with my heruko app link
@@ -11,6 +12,9 @@ app.use(cors());
 
 //Define our PORT
 const PORT = process.env.PORT || 3000;
+
+//create an object from Client construction fo define which database I'm going to use
+const client = new pg.Client(process.env.DATABASE_URL)
 
 //Define app routes
 app.get('/', theMainHandler);
@@ -33,13 +37,36 @@ function locationHandler(req, res) {
     const cityData = req.query.city;
     let key = process.env.LOCATION_KEY;
     const url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${cityData}&format=json`;
-    //the purpose from the superagent is to get the data from the url
-    superagent.get(url)
-        .then(data => {
-            let locationData = new Location(cityData, data.body);
-            res.status(200).send(locationData);
-        })
-        .catch(() => errorHandler('Some Thing Went Wrong with location!!!', req, res));
+
+    let selectAllSQL = `SELECT * FROM city`;
+    let selectSQL = `SELECT * FROM city WHERE search_query=$1`;
+    let safeValues = [];
+    client.query(selectAllSQL).then((result) => {
+        if (result.rows.length <= 0) {
+            superagent.get(url).then((data) => {
+                console.log(`from API`);
+                const locationData = new Location(data.body, cityData);
+                insertLocationInDB(locationData);
+                res.status(200).json(locationData);
+            });
+        } else {
+            safeValues = [cityData];
+            client.query(selectSQL, safeValues).then((result) => {
+                if (result.rows.length <= 0) {
+                    superagent.get(url).then((data1) => {
+                        console.log(`From API Again`);
+                        const locationData2 = new Location(data1.body, cityData);
+                        insertLocationInDB(locationData2);
+                        res.status(200).json(locationData2);
+                    });
+                } else {
+                    console.log('form data base');
+                    res.status(200).json(result.rows[0]);
+                }
+            });
+        }
+    });
+
 };
 
 function weatherHandler(req, res) {
@@ -144,6 +171,20 @@ function yelpHandler(req, res) {
 
 }
 
+function insertLocationInDB(obj) {
+    let insertSQL = `INSERT INTO city (search_query,formatted_query,latitude,longitude) VALUES ($1,$2,$3,$4)`;
+    let safeValues = [
+        obj.search_query,
+        obj.formatted_query,
+        obj.latitude,
+        obj.longitude,
+    ];
+
+    client.query(insertSQL, safeValues).then(() => {
+        console.log('storing data in database');
+    });
+}
+
 function handleNotFound(req, res) {
     res.status(404).send('NOT FOUND')
 
@@ -153,7 +194,7 @@ function errorHandler(error, req, res) {
     res.status(500).send(error);
 };
 
-function Location(cityData, location) {
+function Location(location, cityData) {
     this.search_query = cityData;
     this.formatted_query = location[0].display_name;
     this.latitude = location[0].lat;
@@ -204,14 +245,11 @@ function Movie(dataThree) {
     this.released_on = dataThree.release_data;
 };
 
-function Yelp(dataFour) {
-    this.name = dataFour.name;
-    this.image_url = dataFour.image_url;
-    this.price = dataFour.price;
-    this.rating = dataFour.rating;
-    this.url = dataFour.url;
-};
+client.connect()
+    .then(() => {
+        app.listen(PORT, () => {
+            console.log(`Listening on PORT ${PORT}`)
+        });
+    });
 
-app.listen(PORT, () => {
-    console.log(`Listening on PORT ${PORT}`)
-});
+
